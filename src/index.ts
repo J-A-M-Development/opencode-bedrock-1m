@@ -23,10 +23,12 @@ const QUOTA_MESSAGES: Record<string, string> = {
   "Too many tokens per day":
     "Bedrock daily token quota exhausted for this model. Switch to another region (EU/Global/US) or wait for the reset at midnight UTC.",
   "Too many requests":
-    "Bedrock RPM quota exceeded. You are on the 1M context profile (1 RPM). Wait a moment before retrying.",
+    "Bedrock RPM quota exceeded. Wait a moment before retrying.",
 }
 
 export const BedrockContextPlugin: Plugin = async ({ client }) => {
+  const notified = new Set<string>()
+
   return {
     /**
      * Inject the 1M context beta header for supported Claude models on Bedrock.
@@ -51,24 +53,32 @@ export const BedrockContextPlugin: Plugin = async ({ client }) => {
     },
 
     /**
-     * Intercept session errors and surface Bedrock quota errors as toasts.
+     * Intercept message updates to detect Bedrock quota errors and surface them as toasts.
+     * session.error is not triggered for retryable errors — message.updated is more reliable.
      */
-    "session.error": async ({ error, sessionID }) => {
-      if (!error) return
+    "message.updated": async ({ message }) => {
+      if (!message) return
 
-      const message = typeof error === "string" ? error : (error as Error).message ?? ""
+      const parts = (message as any).parts ?? []
+      for (const part of parts) {
+        const text: string = part?.text ?? part?.error ?? ""
+        if (!text) continue
 
-      for (const [pattern, userMessage] of Object.entries(QUOTA_MESSAGES)) {
-        if (message.includes(pattern)) {
+        for (const [pattern, userMessage] of Object.entries(QUOTA_MESSAGES)) {
+          if (!text.includes(pattern)) continue
+
+          const key = `${message.id}:${pattern}`
+          if (notified.has(key)) break
+          notified.add(key)
+
           await client.app.log({
             body: {
               service: "opencode-bedrock-1m",
               level: "warn",
-              message: `Bedrock quota error on session ${sessionID}: ${message}`,
+              message: `Bedrock quota error: ${text}`,
             },
           })
 
-          // Surface to the user via toast
           await client.event.publish({
             body: {
               type: "tui.toast.show",

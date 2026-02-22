@@ -1,6 +1,6 @@
 {
   "name": "opencode-bedrock-1m",
-  "version": "1.0.1",
+  "version": "1.0.2",
   "description": "OpenCode plugin that enables 1M context window for Claude models on AWS Bedrock via the context-1m-2025-08-07 beta header, with quota error reporting.",
   "main": "src/index.ts",
   "type": "module",
@@ -20,7 +20,7 @@
   "license": "MIT",
   "repository": {
     "type": "git",
-    "url": "https://github.com/J-A-M-Development/opencode-bedrock-1m"
+    "url": "git+https://github.com/J-A-M-Development/opencode-bedrock-1m.git"
   },
   "peerDependencies": {
     "@opencode-ai/plugin": ">=1.0.0"
