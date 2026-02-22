@@ -1,7 +1,7 @@
 {
   "name": "opencode-bedrock-1m",
-  "version": "1.0.3",
-  "description": "OpenCode plugin that enables 1M context window for Claude models on AWS Bedrock via the context-1m-2025-08-07 beta header, with quota error reporting.",
+  "version": "1.0.4",
+  "description": "OpenCode plugin that unlocks the 1M token context window for Claude models on AWS Bedrock.",
   "main": "src/index.ts",
   "type": "module",
   "scripts": {
