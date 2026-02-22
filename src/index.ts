@@ -53,44 +53,41 @@ export const BedrockContextPlugin: Plugin = async ({ client }) => {
     },
 
     /**
-     * Intercept message updates to detect Bedrock quota errors and surface them as toasts.
-     * session.error is not triggered for retryable errors — message.updated is more reliable.
+     * Intercept session.error events to detect Bedrock quota errors and surface them as toasts.
      */
-    "message.updated": async ({ message }) => {
+    event: async ({ event }) => {
+      const e = event as any
+      if (e?.type !== "session.error") return
+
+      const message: string = e?.properties?.error ?? e?.error ?? ""
       if (!message) return
 
-      const parts = (message as any).parts ?? []
-      for (const part of parts) {
-        const text: string = part?.text ?? part?.error ?? ""
-        if (!text) continue
+      for (const [pattern, userMessage] of Object.entries(QUOTA_MESSAGES)) {
+        if (!message.includes(pattern)) continue
+        if (notified.has(pattern)) break
+        notified.add(pattern)
 
-        for (const [pattern, userMessage] of Object.entries(QUOTA_MESSAGES)) {
-          if (!text.includes(pattern)) continue
+        setTimeout(() => notified.delete(pattern), 60_000)
 
-          const key = `${message.id}:${pattern}`
-          if (notified.has(key)) break
-          notified.add(key)
+        await client.app.log({
+          body: {
+            service: "opencode-bedrock-1m",
+            level: "warn",
+            message: `Bedrock quota error: ${message}`,
+          },
+        })
 
-          await client.app.log({
-            body: {
-              service: "opencode-bedrock-1m",
-              level: "warn",
-              message: `Bedrock quota error: ${text}`,
+        await client.event.publish({
+          body: {
+            type: "tui.toast.show",
+            properties: {
+              message: `Bedrock: ${userMessage}`,
+              level: "error",
             },
-          })
+          },
+        })
 
-          await client.event.publish({
-            body: {
-              type: "tui.toast.show",
-              properties: {
-                message: `Bedrock quota: ${userMessage}`,
-                level: "error",
-              },
-            },
-          })
-
-          break
-        }
+        break
       }
     },
   }
